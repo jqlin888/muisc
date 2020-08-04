@@ -1,5 +1,5 @@
 
-music:main.o file.o music.o
+music:main.o file.o music.o -lpthread
 	gcc -o $@ $^
 
 %.o : %.c

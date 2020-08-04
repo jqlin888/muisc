@@ -17,7 +17,6 @@ void PrintUsage(void)
 int main(int argc, char **argv)
 {
 	char ch;
-	PT_SongOpr ptSongOpr;
 
 	PrintUsage();
 
@@ -36,32 +35,31 @@ int main(int argc, char **argv)
 			case 'P':
 			case 'p':
 			{
-				ptSongOpr = GetSongsList();
-				PlaySong(ptSongOpr);
+				PlaySong("hello.mp3");
 				break;
 			}
 			case 'N':
 			case 'n':
 			{
-				NextSong(ptSongOpr);
+				NextSong();
 				break;
 			}
 			case 'U':
 			case 'u':
 			{
-				PlaySong(ptSongOpr);
+				PrevSong();
 				break;
 			}
 			case 'S':
 			case 's':
 			{
-				PauseSong(ptSongOpr);
+				PauseSong();
 				break;
 			}
 			case 'Q':
 			case 'q':
 			{
-				StopSong(ptSongOpr);
+				StopSong();
 				goto exit;
 			}
 			default:
