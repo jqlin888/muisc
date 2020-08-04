@@ -2,76 +2,43 @@
 #include <file.h>
 #include <music.h>
 #include <unistd.h>
-
-void PrintUsage(void)
-{
-	printf("Usage:\r\n");
-	printf("a : add songs to list\r\n");
-	printf("p : play song\r\n");
-	printf("n : play next song\r\n");
-	printf("u : play prev song\r\n");
-	printf("s : pause song\r\n");
-	printf("q : stop song\r\n");
-}
+#include <string.h>
 
 int main(int argc, char **argv)
 {
-	char ch;
-
-	PrintUsage();
+	char str[16];
 
 	while(1)
 	{
-		ch = getchar();
-		switch(ch)
+		memset(str, '\0', 16);
+		scanf("%s", str);
+		str[15] = '\0';
+		if (strncmp(str, "add", strlen("add")) == 0)
 		{
-			case 'A':
-			case 'a':
-			{
-				AddSongs();
-				PrintSongList();
-				break;
-			}
-			case 'P':
-			case 'p':
-			{
-				PlaySong("hello.mp3");
-				break;
-			}
-			case 'N':
-			case 'n':
-			{
-				NextSong();
-				break;
-			}
-			case 'U':
-			case 'u':
-			{
-				PrevSong();
-				break;
-			}
-			case 'S':
-			case 's':
-			{
-				PauseSong();
-				break;
-			}
-			case 'Q':
-			case 'q':
-			{
-				StopSong();
-				goto exit;
-			}
-			default:
-			{
-				if (ch != '\r' || ch != '\n')
-				{
-					printf("error! please reenter:\r\n");
-					PrintUsage();
-				}
-				break;
-			}
+			AddSongs();
+			PrintSongList();
 		}
+		else if (strncmp(str, "play", strlen("play")) == 0)
+		{
+			PlaySong("/home/book/music/xiaobaima.mp3");
+		}
+		else if (strncmp(str, "next", strlen("next")) == 0)
+		{
+			NextSong();
+		}
+		else if (strncmp(str, "prev", strlen("prev")) == 0)
+		{
+			PrevSong();
+		}
+		else if (strncmp(str, "pause", strlen("pause")) == 0)
+		{
+			PauseSong();
+		}
+		else if (strncmp(str, "stop", strlen("stop")) == 0)
+		{
+			StopSong();
+		}
+
 	}
 
 exit:

@@ -11,31 +11,58 @@
 #include <sys/wait.h>
 #include <string.h>
 
+static int bStopPlaySignal;
 static int g_iSongSum;
 static PT_SongOpr g_ptSongOprHead;
-static pthread_mutex_t g_SearchThreadMtx = PTHREAD_MUTEX_INITIALIZER;
+//static pthread_mutex_t g_SearchThreadMtx = PTHREAD_MUTEX_INITIALIZER;
 //static pthread_cond_t g_SearchThreadCond = PTHREAD_COND_INITIALIZER;
+
+static pthread_mutex_t g_PlayThreadMtx = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t g_PlayThreadCond = PTHREAD_COND_INITIALIZER;
 
 static E_PlayCmd g_ePlayCmd = PLAY_CMD_NONE;		/* 默认没有播放命令 */
 static E_PlayMode g_ePlayMode = PLAY_MODE_ORDER;	/* 默认顺序播放 */
 
 static int isExistProcess(const char *strName)
 {
-	return 0;
+	FILE *ptFd;
+	int iPsNum;
+	char acCmd[32];
+	char acTmp[8];
+	snprintf(acCmd, 32, "ps -ef |grep %s |grep -v grep | wc -l", strName);
+	acCmd[31] = '\0';
+	system(acCmd);
+
+	if((ptFd = popen(acCmd, "r")) != NULL)
+	{
+		if((fgets(acTmp, sizeof(acTmp), ptFd)) !=  NULL )
+		{ 
+			iPsNum = atoi(acTmp);
+			if (0 != iPsNum)
+			{
+				pclose(ptFd);
+				return 1;
+			}
+		}
+		else
+			return 0;
+	}
+	else
+		return 0;
 }
 
 static void SetPlayCmd(E_PlayCmd ePlayCmd)
 {
-	pthread_mutex_lock(&g_SearchThreadMtx);
+//	pthread_mutex_lock(&g_SearchThreadMtx);
 	g_ePlayCmd = ePlayCmd;
-	pthread_mutex_unlock(&g_SearchThreadMtx);
+//	pthread_mutex_unlock(&g_SearchThreadMtx);
 }
 
 static E_PlayCmd GetPlayCmd(void)
 {
-	pthread_mutex_lock(&g_SearchThreadMtx);
+//	pthread_mutex_lock(&g_SearchThreadMtx);
 	return g_ePlayCmd;
-	pthread_mutex_unlock(&g_SearchThreadMtx);
+//	pthread_mutex_unlock(&g_SearchThreadMtx);
 }
 
 static void SetPlayMode(E_PlayMode ePlayMode)
@@ -169,7 +196,8 @@ int AddSongs(void)
 				continue;
 			}
 			bzero(ptSongOpr, sizeof(T_SongOpr));
-			strncpy(ptSongOpr->strName, aptDirContent[i]->strName, PATH_NAME_LEN);
+			snprintf(ptSongOpr->strName, PATH_NAME_LEN, "%s/%s", strCurPath, aptDirContent[i]->strName);
+			ptSongOpr->strName[PATH_NAME_LEN - 1] = '\0';
 			ptSongOpr->eFileType = aptDirContent[i]->eFileType;
 			AddSong2Link(ptSongOpr);
 		}
@@ -183,9 +211,9 @@ int AddSongs(void)
 PT_SongOpr GetSongsList(void)
 {
 	PT_SongOpr ptTmp;
-	pthread_mutex_lock(&g_SearchThreadMtx);
+//	pthread_mutex_lock(&g_SearchThreadMtx);
 	ptTmp = g_ptSongOprHead;
-	pthread_mutex_unlock(&g_SearchThreadMtx);
+//	pthread_mutex_unlock(&g_SearchThreadMtx);
 	
 	return ptTmp;
 }
@@ -238,6 +266,15 @@ static void *Play(void *ptArg)
 
 	while(ptCurSong)
 	{
+		if (bStopPlaySignal)
+		{
+			bStopPlaySignal = 0;
+			printf("debug: %s:%d\r\n", __FILE__, __LINE__);
+			pthread_mutex_lock(&g_PlayThreadMtx);
+			pthread_cond_wait(&g_PlayThreadCond, &g_PlayThreadMtx);
+			pthread_mutex_unlock(&g_PlayThreadMtx);
+		}
+		
 		snprintf(strCmd, 256, "play %s", ptCurSong->strName);
 		strCmd[255] = '\0';
 		system(strCmd);
@@ -262,7 +299,9 @@ static void *Play(void *ptArg)
 				ptCurSong = GetSongFrmPlayMode(ptCurSong, g_iSongSum);
 			}
 			default:
+			{
 				break;
+			}
 		}
 	}
 
@@ -272,7 +311,7 @@ static void *Play(void *ptArg)
 int PlaySong(const char *strName)
 {
 	int iRet;
-	pthread_t tPlayThreadID;
+	static pthread_t tPlayThreadID;
 	PT_SongOpr ptCurSong;
 
 	ptCurSong = GetSongFrmName(strName);
@@ -283,17 +322,26 @@ int PlaySong(const char *strName)
 	}
 
 	/* 如果线程存在 */
-	if (0)
+	if (isExistProcess("play"))
 	{
 		system("killall -CONT play");
 	}
 	else
 	{
-		iRet = pthread_create(&tPlayThreadID, NULL, &Play, ptCurSong);
-		if (iRet < 0)
+		if (0 == tPlayThreadID)
 		{
-			printf("create play thread failed!\r\n");
-			return -1;
+			iRet = pthread_create(&tPlayThreadID, NULL, &Play, ptCurSong);
+			if (iRet < 0)
+			{
+				printf("create play thread failed!\r\n");
+				return -1;
+			}
+		}
+		else
+		{
+			pthread_mutex_lock(&g_PlayThreadMtx);
+			pthread_cond_signal(&g_PlayThreadCond);
+			pthread_mutex_unlock(&g_PlayThreadMtx);
 		}
 	}
 	
@@ -303,7 +351,7 @@ int PlaySong(const char *strName)
 int NextSong(void)
 {
 	SetPlayCmd(PLAY_CMD_NEXT);
-	system("killall play");
+	system("killall -9 play");
 
 	return 0;
 }
@@ -311,7 +359,7 @@ int NextSong(void)
 int PrevSong(void)
 {
 	SetPlayCmd(PLAY_CMD_PREV);
-	system("killall play");
+	system("killall -9 play");
 
 	return 0;
 }
@@ -324,6 +372,7 @@ int PauseSong(void)
 
 int StopSong(void)
 {
-	system("killall play");
+	bStopPlaySignal = 1;
+	system("killall -9 play");
 	return 0;
 }
