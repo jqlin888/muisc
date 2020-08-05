@@ -29,5 +29,6 @@ typedef struct DirContent {
 
 int GetDirContent(const char *strDirPath, PT_DirContent **apptDirContent);
 int FreeDirContent(PT_DirContent *aptDirContent, int iSum);
+int GetFileFrmDir(const char *strDirName, E_FileType eFileType, int *piHadGetFileSum, char apFileName[][PATH_NAME_LEN]);
 
 #endif /* _FILE_H */

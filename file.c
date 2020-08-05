@@ -187,15 +187,22 @@ int GetDirContent(const char *strDirPath, PT_DirContent **apptDirContent)
 	for (i = j; i < iFileSum; i++)
 	{
 		if (aptDirContent[i])
+		{
 			free(aptDirContent[i]);
+			aptDirContent[i] = NULL;
+		}
 	}
 	
 	for (i = 0; i < iFileSum; i++)
 	{
 		if (aptNameList[i])
+		{
 			free(aptNameList[i]);
+			aptNameList[i] = NULL;
+		}
 	}
 	free(aptNameList);
+	aptNameList = NULL;
 
 	return j;
 	
@@ -210,11 +217,55 @@ int FreeDirContent(PT_DirContent *aptDirContent, int iSum)
 	for (i = 0; i < iSum; i++)
 	{
 		if (aptDirContent[i])
+		{
 			free(aptDirContent[i]);
+			aptDirContent[i] = NULL;
+		}
 	}
 
 	free(aptDirContent);
+	aptDirContent = NULL;
 
 	return i;
+}
+
+int GetFileFrmDir(const char *strDirName, E_FileType eFileType, int *piHadGetFileSum, char apFileName[][PATH_NAME_LEN])
+{
+	int i;
+	int iDirContentSum;
+	PT_DirContent *aptDirContent;
+	char strSubDirName[PATH_NAME_LEN];
+	
+	iDirContentSum = GetDirContent(strDirName, &aptDirContent);
+	if (-1 == iDirContentSum)
+		return -1;
+	
+	for (i = 0; i < iDirContentSum; i++)
+	{
+		if (aptDirContent[i]->eFileType == eFileType)
+		{
+			snprintf(apFileName[i], PATH_NAME_LEN, "%s/%s", strDirName, aptDirContent[i]->strName);
+			apFileName[i][PATH_NAME_LEN - 1] = '\0';
+			free(aptDirContent[i]);
+			aptDirContent[i] = NULL;
+		}
+	}
+
+	for (i = 0; i < iDirContentSum; i++)
+	{
+		if (NULL == aptDirContent[i])
+			continue;
+		
+		if (aptDirContent[i]->eFileType == FILETYPE_DIR && isRegDir(strDirName, aptDirContent[i]->strName))
+		{
+			snprintf(strSubDirName, PATH_NAME_LEN, "%s/%s", strDirName, aptDirContent[i]->strName);
+			strSubDirName[PATH_NAME_LEN - 1] = '\0';
+			GetFileFrmDir(strSubDirName, eFileType, piHadGetFileSum, apFileName);
+		}
+	}
+
+	FreeDirContent(aptDirContent, iDirContentSum);
+	
+	return 0;
 }
 
